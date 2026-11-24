@@ -1,0 +1,28 @@
+#!/bin/sh
+# pre-commit 钩子：强制每次提交必须包含 log/ 下的改动
+#
+# 规则：改动了任何东西，都必须先在 log/YYYY-MM-DD.md 里记一条。
+# 逃生通道：git commit --no-verify
+
+staged_log=$(git diff --cached --name-only --diff-filter=ACM | grep '^log/' | head -n 1)
+
+if [ -n "$staged_log" ]; then
+    exit 0
+fi
+
+echo ""
+echo "[pre-commit] 拒绝提交：没有改动 log/ 下的任何文件"
+echo ""
+echo "  规则：改动了任何东西，都必须先在 log/YYYY-MM-DD.md 里记一条。"
+echo ""
+echo "  条目格式（五个字段，缺一不可）："
+echo "    ## HH:MM  一句话标题"
+echo "    - **智能体**：平台-模型-对话id"
+echo "    - **操作**：具体做了什么（命令 / 路径 / 值）"
+echo "    - **原因**：为什么做，解决什么问题"
+echo "    - **影响**：改变了什么状态"
+echo "    - **回滚**：怎么撤销"
+echo ""
+echo "  纯错别字修复、只读操作可以不写，用：git commit --no-verify"
+echo ""
+exit 1

@@ -1,0 +1,8 @@
+# 个人状态文件（由 gen-state.sh 生成，不提交）
+STATE.md
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*~

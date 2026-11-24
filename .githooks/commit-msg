@@ -1,0 +1,44 @@
+#!/bin/sh
+# commit-msg 钩子：校验 commit message 末尾带智能体标识
+#
+# 参数 $1 = 含提交信息的临时文件路径（git 自动传入）
+# 逃生通道：git commit --no-verify
+
+msg_file="$1"
+
+# 空提交信息交给 git 自己报错
+if [ ! -f "$msg_file" ]; then
+    exit 0
+fi
+
+# 取第一条非空、非注释的行
+first_line=$(grep -v '^#' "$msg_file" | grep -v '^$' | head -n 1)
+
+# merge / revert 提交跳过检查
+case "$first_line" in
+    Merge\ *|Revert\ *)
+        exit 0
+        ;;
+esac
+
+if echo "$first_line" | grep -qE '\[Agent: [^]]+\]'; then
+    exit 0
+fi
+
+echo ""
+echo "[commit-msg] 拒绝提交：commit message 缺少智能体标识"
+echo ""
+echo "  规则：提交信息末尾必须带 [Agent: 平台-模型-对话id]"
+echo ""
+echo "  取法（仓库根目录执行）："
+echo "    ./tools/agent-id.sh <模型名>"
+echo ""
+echo "  正确示例："
+echo '    git commit -m "新增 xxx 配置 [Agent: Claude-sonnet-4.5-a1b2c3d4]"'
+echo ""
+echo "  当前提交信息："
+echo "    $first_line"
+echo ""
+echo "  逃生通道：git commit --no-verify"
+echo ""
+exit 1
