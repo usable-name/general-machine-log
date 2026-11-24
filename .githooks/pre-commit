@@ -1,28 +1,68 @@
 #!/bin/sh
-# pre-commit 钩子：强制每次提交必须包含 log/ 下的改动
+# pre-commit 钩子：强制每次提交必须包含 log/ 下的改动，并校验条目字段完整性
 #
-# 规则：改动了任何东西，都必须先在 log/YYYY-MM-DD.md 里记一条。
+# 检查项：
+#   1) 本次提交必须改动 log/ 下的文件
+#   2) 新增的 log 条目必须含 4 个必填字段（智能体/操作/原因/影响）
+#   3) 两日之外的「影响」/「回滚」允许省略（见下方例外规则）
+#
+# 注意：commit message 的 [Agent:] 校验在 commit-msg 钩子里（pre-commit 读不到提交信息）
 # 逃生通道：git commit --no-verify
 
+# ── 检查 1：必须有 log 改动 ──
 staged_log=$(git diff --cached --name-only --diff-filter=ACM | grep '^log/' | head -n 1)
 
-if [ -n "$staged_log" ]; then
+if [ -z "$staged_log" ]; then
+    echo ""
+    echo "[pre-commit] 拒绝提交：没有改动 log/ 下的任何文件"
+    echo ""
+    echo "  规则：改动了任何东西，都必须先在 log/YYYY-MM-DD.md 里记一条。"
+    echo ""
+    echo "  五个字段："
+    echo "    ## HH:MM  一句话标题"
+    echo "    - **智能体**：平台-模型-对话id"
+    echo "    - **操作**：具体做了什么（命令 / 路径 / 值）"
+    echo "    - **原因**：为什么做，解决什么问题"
+    echo "    - **影响**：改变了什么状态"
+    echo "    - **回滚**：怎么撤销（具体命令/路径）"
+    echo ""
+    echo "  纯错别字修复、只读操作可以不写，用：git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+# ── 检查 2：新增条目的字段完整性 ──
+# 只检查本次「新增的行」（+ 开头），且只检查新增条目的首部字段
+added=$(git diff --cached -U0 -- 'log/*.md' | grep '^+' | grep -v '^+++')
+
+if [ -z "$added" ]; then
+    # 只有删除或纯移动，跳过字段检查
     exit 0
 fi
 
-echo ""
-echo "[pre-commit] 拒绝提交：没有改动 log/ 下的任何文件"
-echo ""
-echo "  规则：改动了任何东西，都必须先在 log/YYYY-MM-DD.md 里记一条。"
-echo ""
-echo "  条目格式（五个字段，缺一不可）："
-echo "    ## HH:MM  一句话标题"
-echo "    - **智能体**：平台-模型-对话id"
-echo "    - **操作**：具体做了什么（命令 / 路径 / 值）"
-echo "    - **原因**：为什么做，解决什么问题"
-echo "    - **影响**：改变了什么状态"
-echo "    - **回滚**：怎么撤销"
-echo ""
-echo "  纯错别字修复、只读操作可以不写，用：git commit --no-verify"
-echo ""
-exit 1
+# 统计本次新增内容里出现的字段
+missing=""
+for field in "智能体" "操作" "原因" "影响"; do
+    if echo "$added" | grep -q "\*\*${field}\*\*"; then
+        :  # 有这个字段
+    else
+        missing="$missing $field"
+    fi
+done
+
+# 如果新增内容里有 ## 标题（说明是新条目），才要求字段齐全
+if echo "$added" | grep -q '^+## '; then
+    if [ -n "$missing" ]; then
+        echo ""
+        echo "[pre-commit] 拒绝提交：新增条目缺少必填字段:$missing"
+        echo ""
+        echo "  必填：智能体 / 操作 / 原因 / 影响"
+        echo "  可选：回滚（但强烈建议写）"
+        echo ""
+        echo "  如果你只改了一个已有条目（不是新增），用：git commit --no-verify"
+        echo ""
+        exit 1
+    fi
+fi
+
+exit 0

@@ -6,15 +6,15 @@
 
 msg_file="$1"
 
-# 空提交信息交给 git 自己报错
+# 空提交信息交给 git 自己报错，不在这里处理
 if [ ! -f "$msg_file" ]; then
     exit 0
 fi
 
-# 取第一条非空、非注释的行
+# 取第一条非空、非注释的行（git 允许注释行）
 first_line=$(grep -v '^#' "$msg_file" | grep -v '^$' | head -n 1)
 
-# merge / revert 提交跳过检查
+# 允许 merge 提交绕过
 case "$first_line" in
     Merge\ *|Revert\ *)
         exit 0
@@ -32,9 +32,10 @@ echo "  规则：提交信息末尾必须带 [Agent: 平台-模型-对话id]"
 echo ""
 echo "  取法（仓库根目录执行）："
 echo "    ./tools/agent-id.sh <模型名>"
+echo "    # → WorkBuddy-deepseek-v4.1-flash-36b1989b"
 echo ""
 echo "  正确示例："
-echo '    git commit -m "新增 xxx 配置 [Agent: Claude-sonnet-4.5-a1b2c3d4]"'
+echo '    git commit -m "新增 xxx 配置 [Agent: WorkBuddy-deepseek-v4.1-flash-36b1989b]"'
 echo ""
 echo "  当前提交信息："
 echo "    $first_line"
